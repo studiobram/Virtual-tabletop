@@ -1,0 +1,365 @@
+<style>
+    .modal-dialog {
+        overflow-y: initial !important
+    }
+
+    .modal-body {
+        height: 550px;
+        overflow-y: auto;
+    }
+
+    #item-list tr td:first-of-type {
+        width: 350px;
+    }
+
+    #item-list tr td:last-of-type {
+        width: 160px;
+    }
+</style>
+<div id="canvas-container">
+    <canvas id="canvas"></canvas>
+</div>
+<div id="side-panel">
+    <div id="zoom">
+        <p id="zoom-value">100%</p>
+        <button class="btn btn-light" id="zoom-in"><i class="fa fa-search-plus"></i></button>
+        <button class="btn btn-light" id="zoom-out"><i class="fa fa-search-minus"></i></button>
+        <button class="btn btn-light" id="zoom-reset"><i class="fa fa-redo-alt"></i></button>
+    </div>
+    <hr />
+    <div>
+        <label for="game-name">Name:</label>
+        <input type="text" class="form-control" name="game-name" id="game-name" value="${game.name}"><br />
+        <input type="checkbox" name="isPublic" ${game.isPublic === "true" ? " checked" : "" }> Public
+    </div>
+    <hr />
+    <div style="display: flex;">
+        <h6 style="float: left;">Items</h6>&nbsp;&nbsp;&nbsp;
+        <button class="btn btn-light" id="items-add" style="float: left;"><i class="fa fa-plus-circle"></i></button>
+    </div>
+    <br />
+    <div>
+        <table id="item-list">
+            <tr>
+                <th></th>
+                <th></th>
+            </tr>
+        </table>
+    </div>
+    <br />
+    <button class="btn btn-light" id="game-save" style="float: left;">Save game</button>
+</div>
+<script>
+    var gameBoard;
+    var game = ${ JSON.stringify(game) };
+    var gameId = function () {
+        var gameIdArray = game.id.split("/");
+        return gameIdArray[gameIdArray.length - 1];
+    }
+
+    var fileFieldContainer = "";
+    var fieldName = "";
+    var multiselect = false;
+
+    $(document).ready(function () {
+        gameBoard = new GameEditor($("#item-model"), game, $("table#item-list"), "${baseUrl}");
+
+        $("#zoom-in").on("click", function () {
+            ZoomBoard(gameBoard.zoom + 10);
+        });
+
+        $("#zoom-out").on("click", function () {
+            var zoomValue = gameBoard.zoom - 10;
+            if (zoomValue >= 10) {
+                ZoomBoard(zoomValue);
+            }
+        });
+        
+        $("#zoom-reset").on("click", function () {
+            ZoomBoard(100);
+        });
+
+        $("#items-add").on("click", function () {
+            gameBoard.createItem();
+            ShowStackSettings();
+        });
+
+        $("#item-save").on("click", function () {
+            gameBoard.saveItem();
+        });
+
+        $("#item-list").on("click", ".item-edit", function () {            
+            gameBoard.editItem($(this).attr("itemId"));
+            ShowStackSettings();
+        });
+
+        $("#item-list").on("click", ".item-delete", function () {
+            gameBoard.deleteItem($(this).attr("itemId"));
+        });
+
+        //$("#item-list").on("click", ".item-up", function () {
+        //    gameBoard.updateOrder($(this).attr("itemId"), true);
+        //});
+
+        //$("#item-list").on("click", ".item-down", function () {
+        //    gameBoard.updateOrder($(this).attr("itemId"), false);
+        //});
+
+        $("#item-isStack").on("change", function () { ShowStackSettings(); });
+
+        function ShowStackSettings() {
+            if ($("#item-isStack").is(':checked')) {
+                $("#stack-settings").show();
+            } else {
+                $("#stack-settings").hide();
+            }
+        }
+
+        $("#game-save").on("click", function () {
+            var items = gameBoard.canvasItems;
+            for (var i = 0; i < items.length; i++) {
+                items[i].isSelected = false;
+                items[i].multiselect = false;
+            }
+
+            $.ajax({
+                url: '/game/save',
+                type: 'post',
+                dataType: 'text',
+                contentType: 'application/x-www-form-urlencoded',
+                data: {
+                    gameId: game.id,
+                    name: $('input[name="game-name"]').val(),
+                    isPublic: $('input[name="isPublic"]')[0].checked,
+                    items: JSON.stringify(items)
+                },
+                success: function (data) {
+                    alert(JSON.parse(data).message);
+                },
+                error: function (jqXhr, textStatus, errorThrown) {
+                    console.log(jqXhr, textStatus, errorThrown);
+                }
+            });
+        });
+
+        $(".item-stackItems-table").on("click", ".stackItem-delete", function () {
+            $(this).parent().parent().remove();
+        });
+
+        $("#files-select").on("click", function () {
+            // get all from form and applay to main model
+            var selectedImages = [];
+            $("#file-select input[name=file]:checked").each(function () {
+                selectedImages.push($(this).val());
+            });
+
+            if (multiselect == false) {
+                fileFieldContainer.find(".item-files").html("");
+                fileFieldContainer.find("." + fieldName).remove();
+                for (var i = 0; i < selectedImages.length; i++) {
+                    $(fileFieldContainer.find(".item-files")).append($("<li>").html('<img src="${baseUrl}/file/' + selectedImages[i] + '" width="60" height="60">'));
+                    fileFieldContainer.append('<input type="hidden" class="' + fieldName + '" id="' + fieldName + '" name="' + fieldName + '" value="' + selectedImages[i] + '">');
+                }
+            }
+            else if (multiselect == true) {
+                for (var i = 0; i < selectedImages.length; i++) {
+                    $(fileFieldContainer.find(".item-stackItems-table")).append($("<tr/>").html('<td><img src="${baseUrl}/file/' + selectedImages[i] + '" width="60" height="60"><input type="hidden" class="' + fieldName + '-src" id="' + fieldName + '-src" name="' + fieldName + '-src" value="' + selectedImages[i] + '"></td><td><input type="number" class="' + fieldName + '-amount" id="' + fieldName + '-amount" name="' + fieldName + '-src" value="1"></td><td><button class="stackItem-delete btn btn-default">Delete</button></td>'));
+                }
+            }
+
+            fileFieldContainer = "";
+            fieldName = "";
+            multiselect = false;
+
+            $("#file-select").modal('hide');
+        });
+
+        $(".file-select-open").on("click", function () {
+            fileFieldContainer = $(this).parent();
+            fieldName = $(this).attr("file-name");
+            multiselect = $(this).attr("multiselect") !== "false";
+
+            LoadFileSelect();
+        });
+
+        $("#file-select").on("click", ".file-delete", function () {
+            if (confirm('Are you sure you want to delete this file?')) {
+                $.ajax({
+                    url: '/file/delete/' + gameId() + '/' + $(this).attr("filename"),
+                    type: 'get',
+                    success: function (data) {
+                        LoadFileSelect();
+                    },
+                    error: function (jqXhr, textStatus, errorThrown) {
+                        console.log(jqXhr, textStatus, errorThrown);
+                    },
+                });
+            }            
+        });
+
+        $("#files-upload").on("click", function () {
+            var fd = new FormData($("#files-form")[0]);
+            $.ajax({
+                url: '/file/add/' + gameId(),
+                type: 'POST',
+                data: fd,
+                success: function (data) {
+                    LoadFileSelect();
+                    $("#file-upload").modal('hide');
+                },
+                error: function (jqXhr, textStatus, errorThrown) {
+                    console.log(jqXhr, textStatus, errorThrown);
+                },
+                contentType: false,
+                processData: false
+            });
+        });
+    });
+
+    function LoadFileSelect() {
+        $.ajax({
+            url: '/files/' + gameId(),
+            type: 'get',
+            success: function (data) {
+                $("#file-list").html("");
+
+                // If the data.files is an empty array then it will be undefined
+                if (data.files != undefined) {
+                    for (var i = 0; i < data.files.length; i++) {
+                        $('<tr/>').html('<td><input type="' + (multiselect ? "checkbox" : "radio") + '" name="file" value="' + data.files[i].src + '"></td><td><img src="${baseUrl}/file/' + data.files[i].src + '" width="90" height="90"></td><td>' + data.files[i].name + '</td><td><button class="file-delete" filename="' + data.files[i].fileName + '">Delete</button></td>').appendTo("#file-list");
+                    }
+                }                
+
+                $("#file-select").modal('show');
+            },
+            error: function (jqXhr, textStatus, errorThrown) {
+                console.log(jqXhr, textStatus, errorThrown);
+            },
+        });
+    }
+
+    function ZoomBoard(value) {
+        gameBoard.zoom = value;
+        $('#zoom-value').html(value + "%");
+        gameBoard.draw();
+    }
+</script>
+
+<div class="modal fade" id="item-model" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="item-errors"></div>
+                <input type="hidden" id="item-id" />
+                <input type="hidden" id="item-order" name="item-order">
+                <div class="form-group">
+                    <label for="item-name">Name:</label>
+                    <input type="text" class="form-control" id="item-name" name="item-name" placeholder="Enter a name">
+                </div>
+                <div class="form-group">
+                    <label for="item-width">Width:</label>
+                    <input type="number" class="form-control" id="item-width" name="item-width">
+                </div>
+                <div class="form-group">
+                    <label for="item-height">Height:</label>
+                    <input type="number" class="form-control" id="item-height" name="item-height">
+                </div>
+                <div class="form-group" id="item-src-container">
+                    <label for="item-src">Src:</label>
+                    <ul class="item-files">
+                    </ul>
+                    <button type="button" class="btn btn-primary file-select-open" file-name="item-src" multiselect="false">Select</button>
+                </div>
+                <div class="form-group" id="item-backsrc-container">
+                    <label for="item-backsrc">Background Src:</label>
+                    <ul class="item-files">
+                    </ul>
+                    <button type="button" class="btn btn-primary file-select-open" file-name="item-backsrc" multiselect="false">Select</button>
+                </div>
+                <div class="form-group">
+                    <label for="item-canBeTurned">Can be turned:</label>
+                    <input type="checkbox" class="form-control" id="item-canBeTurned" name="item-canBeTurned">
+                </div>
+                <div class="form-group">
+                    <label for="item-canBeRotated">Can be rotaded:</label>
+                    <input type="checkbox" class="form-control" id="item-canBeRotated" name="item-canBeRotated">
+                </div>
+                <div class="form-group">
+                    <label for="item-rotationSteps">Rotation steps:</label>
+                    <input type="number" class="form-control" id="item-rotationSteps" name="item-rotationSteps">
+                </div>
+                <div class="form-group">
+                    <label for="item-isStack">Is stack:</label>
+                    <input type="checkbox" class="form-control" id="item-isStack" name="item-isStack">
+                </div>
+                <div id="stack-settings">
+                    <!--<div class="form-group">
+                        <label for="item-showStackCount">Show stack count:</label>
+                        <input type="checkbox" class="form-control" id="item-showStackCount" name="item-showStackCount">
+                    </div>-->
+                    <div class="form-group">
+                        <label for="item-drawClosed">Draw stack items closed:</label>
+                        <input type="checkbox" class="form-control" id="item-drawClosed" name="item-drawClosed">
+                    </div>
+                    <div class="form-group" id="item-stackItems-container">
+                        <label>Stack items Src:</label>
+                        <button type="button" class="btn btn-primary file-select-open" file-name="item-stackItems" multiselect="true">Select</button>
+                        <table class="item-stackItems-table"></table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" id="item-save">Save</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="file-select" role="dialog">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <table id="file-list">
+                    <tr>
+                        <th></th>
+                        <th></th>
+                    </tr>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#file-upload">Add</button>
+                <button type="button" class="btn btn-default" id="files-select">Select</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="file-upload" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="files-form">
+                    <div class="form-group">
+                        <label for="files">Files:</label>
+                        <input type="file" class="form-control" id="files" name="files" accept="image/x-png,image/gif,image/jpeg" multiple>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" id="files-upload">Upload</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>

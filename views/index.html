@@ -1,0 +1,49 @@
+<div class="container">
+    <h1>Rooms</h1>
+    <button class="btn btn-default" data-toggle="modal" data-target="#room-create">Create room</button><br/>
+
+    ${errors.map(e => `<div class="alert alert-danger" role="alert">${e}</div>`).join('')}
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            ${rooms.map(e => `
+            <tr><td>${e.name}</td><td><a href="/room/${e.id}" class="btn btn-default">Join</a>` + (e.isMyRoom == true ? `<a href="/room/delete/${e.id}" class="btn btn-default">Delete</a></td></tr>` : ``)).join('')}
+        </tbody>
+    </table>
+</div>
+
+<div class="modal fade" id="room-create" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="/room/create" method="post">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                    <h4 class="modal-title">Create Room</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="name">Name:</label>
+                        <input type="text" class="form-control" id="name" placeholder="Enter a room name" name="name">
+                    </div>
+                    <div class="form-group">
+                        <label for="gameId">Game:</label>
+                        <select class="form-control" id="gameId" name="gameId">
+                            ${games.map(e => `
+                            <option value="${e.id}">${e.name}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-default">Create</button>
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

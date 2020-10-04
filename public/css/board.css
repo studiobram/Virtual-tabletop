@@ -1,0 +1,128 @@
+body {
+    height: calc(100% - 50px);
+}
+
+html,
+main {
+    height: 100%;
+}
+
+#canvas-container, #side-panel {
+    float: left;
+}
+
+#canvas-container {
+    width: 80%;
+    height: 100%;
+    overflow: hidden;
+}
+
+#side-panel {
+    width: 20%;
+    height: 100%;
+    padding: 25px;
+    background: #1d1919;
+}
+
+#users {
+    height: auto;
+}
+
+    #users ul {
+        padding: 0;
+        list-style: none;
+        color: white;
+    }
+
+#side-panel {
+    color: white;
+}
+
+button {
+    color: black;
+}
+#users ul li {
+    margin-bottom: 10px;
+}
+
+            #users ul li p {
+                margin-left: 45px;
+                padding-top: 5px;
+                color: rgba(255,255,255,.8);
+            }
+
+#side-panel h6 {
+    font-size: 16px;
+    color: rgba(255,255,255,.8);
+}
+
+hr {
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+#resync {
+    cursor: pointer;
+    width: auto;
+    display: inline-block;
+    position: absolute;
+    right: 40px;
+    top: 40px;
+    font-size: 19px;
+}
+
+#zoom {
+    text-align: center;
+}
+
+#zoom-value {
+    color: rgba(255,255,255,.8);
+}
+
+#side-panel h3,
+#side-panel div {
+    text-align: center;
+}
+
+#side-panel #users,
+#side-panel #chat,
+#side-panel #chat div{
+    text-align: left;
+}
+
+#chat-form input {
+    width: calc(100% - 85px);
+    float: left;
+}
+
+#chat-form button {
+    float: left;
+}
+
+#user-list {
+    max-height: 200px;
+}
+
+#chat-list {
+    height: 200px;
+    padding-left: 0;
+    list-style-type: none;
+}
+
+#chat-list,
+#user-list,
+#side-panel {
+    overflow: scroll;
+    overflow-x: hidden;
+}
+
+#chat-form {
+    color: black;
+}
+
+.navbar {
+    height: 50px;
+}
+
+main {
+    margin-top: 50px;
+}

@@ -1,0 +1,217 @@
+<div id="canvas-container">
+    <canvas id="canvas"></canvas>
+</div>
+<div id="side-panel">
+    <div>
+        <h3>${roomName}</h3>
+        <hr />
+    </div>
+    <div id="zoom">
+        <p id="zoom-value">100%</p>
+        <button class="btn btn-light" id="zoom-in"><i class="fa fa-search-plus"></i></button>
+        <button class="btn btn-light" id="zoom-out"><i class="fa fa-search-minus"></i></button>
+        <button class="btn btn-light" id="zoom-reset"><i class="fa fa-redo-alt"></i></button>
+        <hr />
+    </div>
+    <div>
+        <button class="btn btn-light" id="hand-reset">Reset hand</button><button class="btn btn-light" id="game-endTurn">End turn</button>
+        ${isMyRoom == true ? '<hr /><button class="btn btn-light" id="room-reset">Reset room</button><button class="btn btn-light" id="room-loadGame">Load game</button><button class="btn btn-light" id="room-save_state">Save the state of the room</button><button class="btn btn-light" id="room-close">Close the room</button><button class="btn btn-light" id="room-reverseTurnOrder">Reverse turn order</button><button class="btn btn-light" id="room-reorderUsers">Randomize user order</button><br /><label><input type="checkbox" id="useTurns" name="useTurns"> Use turns</label>' :''}
+    </div>
+    <hr />
+    <div>
+        <h6>Players</h6>
+    </div>
+    <div id="users">
+        <ul id="user-list">
+        </ul>
+    </div>
+    <div id="chat">
+        <hr />
+        <ul id="chat-list"></ul>
+        <div id="chat-form">
+            <input type="text" class="form-control" name="chat" />
+            <button class="btn btn-light" id="chat-send"><i class="fa fa-paper-plane"></i></button>
+            <button class="btn btn-light" id="chat-dice"><i class="fa fa-dice"></i></button>
+        </div>
+    </div>
+</div>
+<script>
+    $(document).ready(function () {
+        $("#zoom-in").on("click", function () {
+            ZoomBoard(gameBoard.zoom + 10);
+        });
+
+        $("#zoom-out").on("click", function () {
+            var zoomValue = gameBoard.zoom - 10;
+            if (zoomValue >= 10) {
+                ZoomBoard(zoomValue);
+            }
+        });
+
+        $("#zoom-reset").on("click", function () {
+            ZoomBoard(100);
+        });
+
+        $("#hand-reset").on("click", function () {
+            gameBoard.resetHand();
+        });
+
+        ${ isMyRoom == true ? '$("#room-loadGame").click(function () { $.ajax({ url: "/room/GetAllGames", type: "get", success: function (data) { $("#item-model #gameId").html(""); for (var i = 0; i < data.games.length; i++) { $("#item-model #gameId").append(\'<option value="\' + data.games[i].id + \'" >\' + data.games[i].name + "</option>"); } $("#item-model").modal("show");},error: function (jqXhr, textStatus, errorThrown) {console.log(jqXhr, textStatus, errorThrown);},contentType: false,processData: false});});' : '' }
+
+        // Add this because firefox disconnect socket.io before going to the link
+        $('a').click(function () {
+            clickedLink = true;
+        });
+    });
+
+    var clickedLink = false;
+
+    function ZoomBoard(value) {
+        gameBoard.zoom = value;
+        $('#zoom-value').html(value + "%");
+        gameBoard.draw();
+    }
+
+    function Disconnect() {
+        window.location.replace("/");
+    }
+
+    function UpdateChatScroll() {
+        var element = document.getElementById("chat-list");
+        element.scrollTop = element.scrollHeight;
+    }
+
+    function SendChat() {
+        var message = $('[name="chat"]').val();
+        if (message.length <= 0) {
+            return;
+        }
+
+        socket.emit('chatSend', { message: message });
+        $('[name="chat"]').val("");
+    }
+
+    var gameBoard;
+
+    var socket = io("${baseUrl}", { path: '/game-board' });
+    socket.on('connect', function () {
+        socket.emit("roomJoin", { roomId: "${roomId}", userId: "${userId}" });
+        socket.on('roomJoined', function () {
+            var userId = "${userId}";
+            gameBoard = new GameBoard(socket, "${baseUrl}");
+
+            socket.on('gameLoad', function (items) {
+                gameBoard = new GameBoard(socket, "${baseUrl}");
+                gameBoard.addItems(items.Items);
+                gameBoard.PreLoadImages(items.Images);
+                gameBoard.addHandItems(items.hand);
+                
+                ${ isMyRoom == true ? '$("#useTurns").prop("checked", items.settings.useTurns === true);' : "" }
+                if (items.settings.currentTurn == userId) {
+                    $("#game-endTurn").show();
+                } else {
+                    $("#game-endTurn").hide();
+                }
+            });
+
+            ${ isMyRoom == true ? '$("#room-reset").click(function () {if (confirm("Are you sure you want to reset the room?") === true) {socket.emit("roomReset");}});$("#room-save_state").click(function () {if (confirm("Are you sure you want to save the state of the current room?") === true) {socket.emit("roomSaveState");socket.on("savedRoomState", function () { alert("Room state successfully saved") })}});$("#room-close").click(function () { if (confirm("Are you sure you want to close the room?") === true) { socket.emit("roomClose"); } });$("#user-list").on("click", "#room-kick", function () { if (confirm("Are you sure you want to kick this user?") === true) { socket.emit("roomKickUser", $(this).attr("user-id")); } });$("#game-load").click(function () { var value = $("#gameId").val(); if (value != undefined && value != null) { socket.emit("roomLoadGame", value); $("#item-model").modal("hide");}});$("#useTurns").change(function () { socket.emit("roomUpdateSettings", { useTurns: $(this)[0].checked }); });$("#room-reorderUsers").click(function () {socket.emit("roomReorderUsers");});$("#room-reverseTurnOrder").click(function () { socket.emit("roomReverseTurnOrder"); });' : '' }
+
+            socket.on('usersUpdate', function (users) {
+                var userlist = $('ul#user-list');
+                userlist.html("");
+                for (var i = 0; i < users.length; i++) {
+                    $('<li/>').html("[" + (users[i].isConnected ? "online" : "offline") + "] " + users[i].name + " - hand items: " + users[i].handLength ${ isMyRoom == true ? '+ (users[i].id != userId ? \' <button class="btn btn-light" id="room-kick" user-id="\' + users[i].id + \'">Kick</button>\' : \'\')' : '' }).appendTo(userlist);
+                }
+            });
+
+            socket.on('addItem', function (data) {
+                gameBoard.addItem(data.item);
+            });
+            socket.on('removeItem', function (data) {
+                gameBoard.removeItem(data.id);
+            });
+            socket.on('itemUpdate', function (updateItem) {
+                gameBoard.updateItem(updateItem);
+            });
+
+            socket.on('addHandItem', function (data) {
+                gameBoard.addHandItem(data.item);
+            });
+            socket.on('addHandItems', function (data) {
+                gameBoard.addHandItems(data.items);
+            });
+            socket.on('removeHandItem', function (data) {
+                gameBoard.removeHandItem(data.id);
+            });
+            socket.on('handItemUpdate', function (updateItem) {
+                gameBoard.updateHandItem(updateItem);
+            });
+
+            socket.on('roomNextTurn', function () {
+                alert("It's your turn");
+                $("#game-endTurn").show();
+            });
+
+            $("#game-endTurn").click(function () { 
+                socket.emit('roomEndTurn');
+                $("#game-endTurn").hide();
+            });
+
+            socket.on('disconnectFromRoom', function (message) {
+                if (message != undefined && message != null && message.length > 0) {
+                    alert(message);
+                }
+                Disconnect();
+            });
+
+            socket.on('disconnect', function () {
+                if (clickedLink !== true) {
+                    window.location.reload(false);
+                }
+            });
+
+            // Chat
+            $("#chat-send").on("click", function () {
+                SendChat();
+            });
+            $('[name="chat"]').on('keyup', function (e) {
+                if (e.key === 'Enter' || e.keyCode === 13) {
+                    SendChat();
+                }
+            });
+            $("#chat-dice").on("click", function () {
+                socket.emit('throwDice');
+            });
+            socket.on('receiveChatMessage', function (message) {
+                $("#chat-list").append($("<li></li>").text(message));
+                UpdateChatScroll();
+            });
+            socket.on('receiveChatMessages', function (messages) {
+                for (var i = 0; i < messages.length; i++) {
+                    $("#chat-list").append($("<li></li>").text(messages[i]));
+                }
+                UpdateChatScroll();
+            });
+        });
+    });
+</script>
+
+<div class="modal fade" id="item-model" role="dialog">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="gameId">Game:</label>
+                    <select class="form-control" id="gameId" name="gameId"></select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" id="game-load">Load</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
