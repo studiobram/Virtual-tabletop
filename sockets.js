@@ -469,6 +469,7 @@ module.exports = function (ioHttps) {
 
                         socket.on("onChange", function (data) {
                             let room = GetRoom(currentRoomId);
+                            let user = room.users.find(x => x.socketId == socket.id);
 
                             let item = room.game.items.find(x => x.id == data.id);
                             if (item == undefined || item == null) {
@@ -476,6 +477,10 @@ module.exports = function (ioHttps) {
                             }
 
                             ChanegItem(item, data.change);
+
+                            if (data.change == "shuffle" && item.isStack === true && item.stackItems.length > 0) {
+                                SendChat(user.name + " shuffled a stack", room, socket, currentRoomId);
+                            }
 
                             socket.emit('itemUpdate', item);
                             socket.to(currentRoomId).emit('itemUpdate', item);
@@ -593,7 +598,16 @@ module.exports = function (ioHttps) {
 
                             let index = room.game.items.indexOf(item);
 
-                            let stackItem = item.stackItems[0];
+                            let stackItemNumber = 0;
+                            if (data.position != undefined && data.position != null) {
+                                stackItemNumber = data.position >= item.stackItems.length ? item.stackItems.length - 1 : data.position;
+                                SendChat(user.name + " took an item from a stack at position " + (stackItemNumber + 1), room, socket, currentRoomId);
+                            }
+                            else if (data.takeToHand === false) {
+                                SendChat(user.name + " took an item from a stack", room, socket, currentRoomId);
+                            }
+
+                            let stackItem = item.stackItems[stackItemNumber];
 
                             stackItem.parentStackId = item.id;
                             stackItem.width = item.width;
@@ -620,6 +634,7 @@ module.exports = function (ioHttps) {
                                 stackItem.y = 10;
 
                                 socket.emit('addHandItem', { item: stackItem, postion: index + 1 });
+                                SendChat(user.name + " took an item from a stack to hand ", room, socket, currentRoomId);
                             }
                             else
                             {
@@ -629,7 +644,7 @@ module.exports = function (ioHttps) {
                                 socket.in(currentRoomId).emit('addItem', { item: stackItem, postion: index + 1 });
                             }
 
-                            item.stackItems.shift();
+                            item.stackItems.splice(stackItemNumber, 1);
                             item.stackItemCount = item.stackItems.length;
 
                             // resend all items to client
@@ -756,7 +771,12 @@ module.exports = function (ioHttps) {
 
                             let index = user.hand.indexOf(item);
 
-                            let stackItem = item.stackItems[0];
+                            let stackItemNumber = 0;
+                            if (data.position != undefined && data.position != null) {
+                                stackItemNumber = data.position >= item.stackItems.length ? item.stackItems.length - 1 : data.position;
+                            }
+
+                            let stackItem = item.stackItems[stackItemNumber];
 
                             stackItem.parentStackId = item.id;
                             stackItem.width = item.width;
@@ -776,7 +796,7 @@ module.exports = function (ioHttps) {
                             stackItem.order = item.order + ((user.hand.filter((obj) => obj.parentStackId === item.id).length + 1) * 0.1);
 
                             user.hand.splice(index + 1, 0, stackItem);
-                            item.stackItems.shift();
+                            item.stackItems.splice(stackItemNumber, 1);
                             item.stackItemCount = item.stackItems.length;
 
                             // resend all items to client

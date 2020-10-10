@@ -37,7 +37,7 @@ class GameBoard {
     isHandOpen = false;
     isDragingHand = false;
     isDragingHandItem = false;
-    handHeight = this.canvas.height / 3;
+    handHeight = (this.canvas.height / 5) * 2;
     handOffsetX = 0;
     handOffsetY = 0;
 
@@ -351,6 +351,7 @@ class GameBoard {
 
                 if (this.buttons.data.isStack === true && this.buttons.data.stackItemCount > 0) {
                     this.drawButton("Take");
+                    this.drawButton("Take from position");
                     this.drawButton("Take to hand");
                     this.drawButton("Shuffle");
                 }
@@ -524,6 +525,9 @@ class GameBoard {
                         ) {
                             boardGame.isDragingHandItem = true;
                             r.isDragging = true;
+
+                            boardGame.handDragStartX = r.x;
+                            boardGame.handDragStartY = r.y;
                             break;
                         }
                     }
@@ -549,7 +553,7 @@ class GameBoard {
                             my < boardGame.ToLocalCoordinate(r.y) + boardGame.boardOffsetY + height
                         ) {
                             boardGame.isDragingItem = true;
-                            r.isDragging = true;
+                            r.isDragging = true;                            
                             break;
                         }
                     }
@@ -625,13 +629,14 @@ class GameBoard {
                 if (
                     handItems.isDragging === true &&
                     boardGame.isHandOpen === true &&
+                    handItems.x != boardGame.handDragStartX && // Only move to board if it has actually moved
+                    handItems.y != boardGame.handDragStartY &&
                     handItems.x + boardGame.handOffsetX > 0 &&
                     handItems.x + boardGame.handOffsetX < boardGame.Width &&
                     handItems.y + boardGame.handOffsetY + (boardGame.Height - boardGame.handHeight) > 0 &&
                     handItems.y + boardGame.handOffsetY + (boardGame.Height - boardGame.handHeight) < boardGame.Height - boardGame.handHeight
                 ) {
                     handItems.isDragging = false;
-
                     handItems.x = (((handItems.x - boardGame.boardOffsetX + boardGame.handOffsetX) / boardGame.zoom) * 100);
                     handItems.y = (((handItems.y - boardGame.boardOffsetY + boardGame.handOffsetY + (boardGame.Height - boardGame.handHeight)) / boardGame.zoom) * 100)  ;
 
@@ -640,6 +645,9 @@ class GameBoard {
 
                 handItems.isDragging = false;
             }
+
+            boardGame.handDragStartX = null;
+            boardGame.handDragStartY = null;
         }
     }
 
@@ -827,7 +835,7 @@ class GameBoard {
                     if (r.isSelected == true) {
                         var clickedButton = false;
 
-                        for (var a = 0; a < 6; a++) {
+                        for (var a = 0; a < 7; a++) {
                             if (
                                 mx > r.x + boardGame.handOffsetX + width + 5 &&
                                 mx < r.x + boardGame.handOffsetX + width + 5 + 90 &&
@@ -917,7 +925,7 @@ class GameBoard {
                 if (r.isSelected == true && anActionHasBeenPerformed !== true) {
                     var clickedButton = false;
 
-                    for (var a = 0; a < 6; a++) {
+                    for (var a = 0; a < 7; a++) {
                         if (
                             mx > boardGame.ToLocalCoordinate(r.x) + boardGame.boardOffsetX + width + 5 &&
                             mx < boardGame.ToLocalCoordinate(r.x) + boardGame.boardOffsetX + width + 5 + 90 &&
@@ -989,6 +997,24 @@ class GameBoard {
 
             if (item.isStack === true && item.stackItemCount > 0) {
                 actions[actions.length] = function (socket, item) {
+                    var value = prompt("Take from position x in stack (1 is the top of the stack)")
+                    var position = parseInt(value);
+
+                    if (value == undefined || value == null) {
+                        return;
+                    }
+
+                    if (Number.isInteger(position) == false || position < 1) {
+                        alert("Incorrect value");
+                        return;
+                    }
+
+                    socket.emit(takeFromStack, { id: item.id, takeToHand: false, position: value - 1 })
+                }
+            }
+
+            if (item.isStack === true && item.stackItemCount > 0) {
+                actions[actions.length] = function (socket, item) {
                     socket.emit(takeFromStack, { id: item.id, takeToHand: true })
                 }
             }
@@ -1018,6 +1044,7 @@ class GameBoard {
 
                     if (Number.isInteger(position) == false || position < 0) {
                         alert("Incorrect value");
+                        return;
                     }
 
                     var boardgameItem = boardGame.canvasItems.find(e => e.multiselect === true && e.isStack === false);

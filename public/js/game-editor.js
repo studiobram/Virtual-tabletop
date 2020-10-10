@@ -62,7 +62,49 @@ class GameEditor extends GameBoard {
     ];
 
     constructor(itemModal, game, itemMenu, baseUrl) {
-        super({ emit: function (a, b) { /* fake the socket connection and do nothing */ } }, baseUrl);
+        super({
+            emit: function (a, b) {
+                /* fake the socket connection and do nothing */
+                if (a == 'onChange') {
+                    var item = gameBoard.canvasItems.find(x => x.id == b.id);
+                    if (item == undefined || item == null) {
+                        return;
+                    }
+
+                    switch (b.change) {
+                        case "pin":
+                            item.canBeDragged = item.canBeDragged === true ? false : true;
+                            break;
+                        case "turn":
+                            if (item.canBeTurned === true) {
+                                item.isTurned = item.isTurned === true ? false : true;
+                            }
+                            break;
+                        case "rotate":
+                            if (item.canBeRotated === true) {
+                                if (item.rotation == undefined) {
+                                    item.rotation = 0;
+                                }
+
+                                let rotation = +item.rotation + +item.rotationSteps;
+                                if (rotation > 360) {
+                                    rotation = rotation - 360;
+                                }
+
+                                item.rotation = rotation;
+                            }
+                            break;
+                        case "shuffle":
+                            if (item.isStack === true && item.stackItems.length > 0) {
+                                item.stackItems = Shuffle(item.stackItems);
+                            }
+                            break;
+                    }
+
+                    gameBoard.draw();
+                }
+            }
+        }, baseUrl);
 
         this.itemModal = itemModal;
         this.itemMenu = itemMenu;
